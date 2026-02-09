@@ -34,7 +34,10 @@ export function AccountForm({ account, onSubmit, onCancel }: AccountFormProps) {
     e.preventDefault()
     setIsLoading(true)
     try {
-      await onSubmit(formData)
+      await onSubmit({
+        ...formData,
+        balance: parseFloat(formData.balance) || 0,
+      })
     } finally {
       setIsLoading(false)
     }
