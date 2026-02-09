@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,7 +18,7 @@ import { LEAD_STATUSES } from '@/lib/utils'
 import { Plus, Search, Users } from 'lucide-react'
 import type { LeadWithRelations } from '@/types'
 
-export default function LeadsPage() {
+function LeadsPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [leads, setLeads] = useState<LeadWithRelations[]>([])
@@ -167,5 +167,13 @@ export default function LeadsPage() {
 
       <LeadForm open={showForm} onClose={handleFormClose} />
     </div>
+  )
+}
+
+export default function LeadsPage() {
+  return (
+    <Suspense fallback={<div className="text-center py-12"><p className="text-muted-foreground">Loading...</p></div>}>
+      <LeadsPageContent />
+    </Suspense>
   )
 }

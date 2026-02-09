@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,7 +10,7 @@ import { ContactForm } from '@/components/contacts/contact-form'
 import { Plus, Search, UserCircle } from 'lucide-react'
 import type { ContactWithRelations } from '@/types'
 
-export default function ContactsPage() {
+function ContactsPageContent() {
   const searchParams = useSearchParams()
   const [contacts, setContacts] = useState<(ContactWithRelations & { _count: { communications: number; tasks: number } })[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -143,5 +143,13 @@ export default function ContactsPage() {
 
       <ContactForm open={showForm} onClose={handleFormClose} />
     </div>
+  )
+}
+
+export default function ContactsPage() {
+  return (
+    <Suspense fallback={<div className="text-center py-12"><p className="text-muted-foreground">Loading...</p></div>}>
+      <ContactsPageContent />
+    </Suspense>
   )
 }
