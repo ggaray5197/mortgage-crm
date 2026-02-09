@@ -1,0 +1,331 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String
+  role          String    @default("LOAN_OFFICER") // ADMIN, MANAGER, LOAN_OFFICER
+  avatar        String?
+  phone         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  leads           Lead[]
+  communications  Communication[]
+  tasks           Task[]
+  loans           Loan[]
+
+  // Finance relations
+  financeAccounts   FinanceAccount[]
+  financeCategories FinanceCategory[]
+  bills             Bill[]
+  expenses          Expense[]
+  incomes           Income[]
+  expectedIncomes   ExpectedIncome[]
+}
+
+model Lead {
+  id            String    @id @default(cuid())
+  firstName     String
+  lastName      String
+  email         String
+  phone         String?
+  status        String    @default("NEW") // NEW, CONTACTED, QUALIFIED, PROPOSAL, NEGOTIATION, WON, LOST
+  source        String?   // WEBSITE, REFERRAL, ZILLOW, REALTOR, COLD_CALL, OTHER
+  loanAmount    Float?
+  propertyType  String?   // SINGLE_FAMILY, CONDO, TOWNHOUSE, MULTI_FAMILY, COMMERCIAL
+  creditScore   Int?
+  notes         String?
+  priority      String    @default("MEDIUM") // LOW, MEDIUM, HIGH
+
+  assignedToId  String?
+  assignedTo    User?     @relation(fields: [assignedToId], references: [id])
+
+  contact       Contact?
+  communications Communication[]
+  tasks         Task[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Contact {
+  id            String    @id @default(cuid())
+  firstName     String
+  lastName      String
+  email         String
+  phone         String?
+  address       String?
+  city          String?
+  state         String?
+  zipCode       String?
+  dateOfBirth   DateTime?
+  employer      String?
+  jobTitle      String?
+  annualIncome  Float?
+  notes         String?
+
+  leadId        String?   @unique
+  lead          Lead?     @relation(fields: [leadId], references: [id])
+
+  loans         Loan[]
+  communications Communication[]
+  tasks         Task[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Loan {
+  id              String    @id @default(cuid())
+  loanNumber      String    @unique
+  loanType        String    // CONVENTIONAL, FHA, VA, JUMBO, USDA
+  loanPurpose     String    // PURCHASE, REFINANCE, CASH_OUT
+  amount          Float
+  interestRate    Float?
+  term            Int?      // in months
+  status          String    @default("APPLICATION") // APPLICATION, PROCESSING, UNDERWRITING, APPROVED, CLOSING, CLOSED, DENIED, WITHDRAWN
+
+  propertyAddress String?
+  propertyCity    String?
+  propertyState   String?
+  propertyZip     String?
+  propertyType    String?
+  propertyValue   Float?
+  ltv             Float?    // Loan to Value ratio
+
+  estimatedClosingDate DateTime?
+  actualClosingDate    DateTime?
+
+  contactId       String
+  contact         Contact   @relation(fields: [contactId], references: [id])
+
+  assignedToId    String?
+  assignedTo      User?     @relation(fields: [assignedToId], references: [id])
+
+  tasks           Task[]
+  communications  Communication[]
+
+  // Finance relations
+  incomes         Income[]
+  expectedIncomes ExpectedIncome[]
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model Communication {
+  id            String    @id @default(cuid())
+  type          String    // EMAIL, CALL, SMS, NOTE, MEETING
+  direction     String?   // INBOUND, OUTBOUND
+  subject       String?
+  content       String
+  outcome       String?   // For calls: ANSWERED, VOICEMAIL, NO_ANSWER, BUSY
+  duration      Int?      // For calls: duration in seconds
+
+  scheduledAt   DateTime?
+  completedAt   DateTime?
+
+  leadId        String?
+  lead          Lead?     @relation(fields: [leadId], references: [id])
+
+  contactId     String?
+  contact       Contact?  @relation(fields: [contactId], references: [id])
+
+  loanId        String?
+  loan          Loan?     @relation(fields: [loanId], references: [id])
+
+  createdById   String
+  createdBy     User      @relation(fields: [createdById], references: [id])
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Task {
+  id            String    @id @default(cuid())
+  title         String
+  description   String?
+  dueDate       DateTime?
+  priority      String    @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  status        String    @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
+  type          String    @default("FOLLOW_UP") // FOLLOW_UP, CALL, EMAIL, MEETING, DOCUMENT, OTHER
+
+  leadId        String?
+  lead          Lead?     @relation(fields: [leadId], references: [id])
+
+  contactId     String?
+  contact       Contact?  @relation(fields: [contactId], references: [id])
+
+  loanId        String?
+  loan          Loan?     @relation(fields: [loanId], references: [id])
+
+  assignedToId  String
+  assignedTo    User      @relation(fields: [assignedToId], references: [id])
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model EmailTemplate {
+  id            String    @id @default(cuid())
+  name          String
+  subject       String
+  body          String
+  category      String    // FOLLOW_UP, WELCOME, STATUS_UPDATE, CLOSING, GENERAL
+  variables     String?   // JSON string of available variables
+  isActive      Boolean   @default(true)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// ==================== FINANCE MODELS ====================
+
+model FinanceAccount {
+  id            String    @id @default(cuid())
+  name          String
+  type          String    @default("CHECKING") // CHECKING, SAVINGS, CREDIT_CARD, CASH
+  balance       Float     @default(0)
+  isDefault     Boolean   @default(false)
+
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  bills           Bill[]
+  expenses        Expense[]
+  incomes         Income[]
+  expectedIncomes ExpectedIncome[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model FinanceCategory {
+  id            String    @id @default(cuid())
+  name          String
+  type          String    // INCOME, EXPENSE
+  color         String    @default("#6b7280")
+
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  bills           Bill[]
+  expenses        Expense[]
+  incomes         Income[]
+  expectedIncomes ExpectedIncome[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Bill {
+  id            String    @id @default(cuid())
+  name          String
+  amount        Float
+  frequency     String    @default("MONTHLY") // WEEKLY, BI_WEEKLY, MONTHLY, QUARTERLY, ANNUAL, ONE_TIME
+  billingDay    Int       @default(1) // Day of month (1-31) or day of week (0-6 for WEEKLY)
+  startDate     DateTime  @default(now())
+  endDate       DateTime?
+  isActive      Boolean   @default(true)
+  notes         String?
+
+  accountId     String?
+  account       FinanceAccount? @relation(fields: [accountId], references: [id])
+
+  categoryId    String?
+  category      FinanceCategory? @relation(fields: [categoryId], references: [id])
+
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Expense {
+  id            String    @id @default(cuid())
+  description   String
+  amount        Float
+  date          DateTime  @default(now())
+  vendor        String?
+  notes         String?
+
+  accountId     String?
+  account       FinanceAccount? @relation(fields: [accountId], references: [id])
+
+  categoryId    String?
+  category      FinanceCategory? @relation(fields: [categoryId], references: [id])
+
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Income {
+  id            String    @id @default(cuid())
+  description   String
+  amount        Float
+  date          DateTime  @default(now())
+  source        String    @default("COMMISSION") // COMMISSION, REFERRAL, SALARY, OTHER
+  incomeType    String    @default("MORTGAGE") // MORTGAGE, REAL_ESTATE, OTHER
+  notes         String?
+
+  loanId        String?
+  loan          Loan?     @relation(fields: [loanId], references: [id])
+
+  accountId     String?
+  account       FinanceAccount? @relation(fields: [accountId], references: [id])
+
+  categoryId    String?
+  category      FinanceCategory? @relation(fields: [categoryId], references: [id])
+
+  expectedIncomeId String? @unique
+  expectedIncome   ExpectedIncome? @relation(fields: [expectedIncomeId], references: [id])
+
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model ExpectedIncome {
+  id            String    @id @default(cuid())
+  description   String
+  amount        Float
+  expectedDate  DateTime
+  probability   Int       @default(50) // 0-100 percentage
+  status        String    @default("PENDING") // PENDING, RECEIVED, CANCELLED
+  source        String    @default("COMMISSION") // COMMISSION, REFERRAL, SALARY, OTHER
+  incomeType    String    @default("MORTGAGE") // MORTGAGE, REAL_ESTATE, OTHER
+  notes         String?
+
+  loanId        String?
+  loan          Loan?     @relation(fields: [loanId], references: [id])
+
+  accountId     String?
+  account       FinanceAccount? @relation(fields: [accountId], references: [id])
+
+  categoryId    String?
+  category      FinanceCategory? @relation(fields: [categoryId], references: [id])
+
+  realizedIncome Income?
+
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
